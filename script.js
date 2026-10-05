@@ -10,6 +10,10 @@ const prev = document.getElementById("prev");
 const play = document.getElementById("play");
 const next = document.getElementById("next");
 
+function resolveAssetPath(assetPath) {
+  return new URL(assetPath, window.location.href).toString();
+}
+
 const songs = [
   {
     title: "1.Dil Na Jaaneya",
@@ -40,11 +44,88 @@ const songs = [
     duration: "4:41",
   },
   {
-    title: "Gangster Paradise",
-    artist: "Coolio",
-    coverPath: "Gangster.jpeg",
-    discPath: "music5.wav",
-    duration: "0:05",
+    title: "Khat",
+    artist: "Navjot Ahuja",
+    coverPath: "cover5.jpg",
+    discPath: "music5.mp3",
+    duration: "4:56",
+  },
+  {
+    title: "Lag Ja Gale",
+    artist: "Sanam",
+    coverPath: "cover6.jpeg",
+    discPath: "music6.mp3",
+    duration: "4:01",
+  },
+  {
+    title: "Darkhaast",
+    artist: "Mithoon, Arijit Singh, Sunidhi Chauhan, Sayeed Quadri",
+    coverPath: "cover7.jpeg",
+    discPath: "music7.mp3",
+    duration: "6:14",
+  },
+  {
+    title: "Ruaan",
+    artist: "Pritam, Arijit Singh, Irshad Kamil",
+    coverPath: "cover8.jpeg",
+    discPath: "music8.mp3",
+    duration: "4:18",
+  },
+  {
+    title: "Jogi",
+    artist: "Yasser Desai, Aakanksha Sharma",
+    coverPath: "cover9.jpeg",
+    discPath: "music9.mp3",
+    duration: "4:33",
+  },
+  {
+    title: "Hosanna",
+    artist: "A.R. Rahman, Leon D'souza, Suzanne D'Mello",
+    coverPath: "cover10.jpeg",
+    discPath: "music10.mp3",
+    duration: "5:31",
+  },
+  {
+    title: "Leja",
+    artist: "Lost Stories, JAI DHIRN",
+    coverPath: "cover11.jpeg",
+    discPath: "music11.mp3",
+    duration: "3:18",
+  },
+  {
+    title: "Awara",
+    artist: "Salman Ali, Muskaan, Sajid-Wajid",
+    coverPath: "cover12.jpeg",
+    discPath: "music12.mp3",
+    duration: "4:57",
+  },
+  {
+    title: "Vaara Re",
+    artist: "Ajay Gogavale",
+    coverPath: "cover13.jpeg",
+    discPath: "music13.mp3",
+    duration: "3:57",
+  },
+  {
+    title: "Tum",
+    artist: "Atif Aslam",
+    coverPath: "cover14.jpeg",
+    discPath: "music14.mp3",
+    duration: "4:40",
+  },
+  {
+    title: "Saiyyan",
+    artist: "Kailash Kher, Paresh Kamath, Naresh Kamath",
+    coverPath: "cover15.jpeg",
+    discPath: "music15.mp3",
+    duration: "5:44",
+  },
+  {
+    title: "Thodi Der",
+    artist: "Farhan Saeed, Shreya Ghoshal, Kumaar",
+    coverPath: "cover16.jpeg",
+    discPath: "music16.mp3",
+    duration: "4:56",
   },
 ];
 
@@ -52,6 +133,11 @@ const STORAGE_KEY = "music-player-state";
 
 let songIndex = 0;
 let playbackIntent = false;
+let pendingRestoreTime = null;
+let activeAudioObjectUrl = null;
+let songLoadGeneration = 0;
+let isSeekFallbackLoading = false;
+let isPointerSeeking = false;
 const params = new URLSearchParams(window.location.search);
 const selectedSongParam = params.get("song");
 const selectedSong =
@@ -84,7 +170,9 @@ if (hasSelectedSong) {
 function savePlayerState() {
   const state = {
     songIndex,
-    currentTime: Number.isFinite(disc.currentTime) ? disc.currentTime : 0,
+    currentTime:
+      pendingRestoreTime ??
+      (Number.isFinite(disc.currentTime) ? disc.currentTime : 0),
     isPlaying: playbackIntent,
   };
 
@@ -95,57 +183,155 @@ function savePlayerState() {
   }
 }
 
+function canSeekToTime(time) {
+  for (let index = 0; index < disc.seekable.length; index += 1) {
+    if (
+      time >= disc.seekable.start(index) &&
+      time <= disc.seekable.end(index)
+    ) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 function loadSong(song, startTime = 0, shouldAutoPlay = false) {
-  cover.src = song.coverPath;
-  disc.src = `${song.discPath}?t=${Date.now()}`;
-  disc.load();
+  const loadGeneration = ++songLoadGeneration;
+  isSeekFallbackLoading = false;
+  if (activeAudioObjectUrl) {
+    URL.revokeObjectURL(activeAudioObjectUrl);
+    activeAudioObjectUrl = null;
+  }
+
+  pendingRestoreTime =
+    Number.isFinite(startTime) && startTime > 0 ? startTime : null;
+  disc.onprogress = null;
+  disc.oncanplay = null;
+  cover.src = resolveAssetPath(song.coverPath);
+  disc.src = resolveAssetPath(song.discPath);
   title.textContent = song.title;
   artist.textContent = song.artist;
   duration.textContent = song.duration;
 
-  const restoreState = () => {
-    if (Number.isFinite(disc.duration) && disc.duration > 0) {
-      disc.currentTime = Math.min(startTime, disc.duration);
+  const restorePosition = () => {
+    if (!Number.isFinite(disc.duration) || disc.duration <= 0) return;
+
+    const targetTime = Math.min(startTime, disc.duration);
+    if (!canSeekToTime(targetTime)) return;
+
+    disc.currentTime = targetTime;
+    pendingRestoreTime = null;
+    disc.onprogress = null;
+    disc.oncanplay = null;
+  };
+
+  const finishLoading = () => {
+    restorePosition();
+
+    if (pendingRestoreTime !== null) {
+      disc.onprogress = restorePosition;
+      disc.oncanplay = restorePosition;
     }
 
     if (shouldAutoPlay) {
-      disc.play().catch(() => {
-        updatePlayPauseIcon();
-      });
+      void attemptPlayAudio();
+    } else {
+      playbackIntent = false;
+      updatePlayPauseIcon();
     }
 
-    updatePlayPauseIcon();
+    savePlayerState();
+  };
+
+  const restoreState = async () => {
+    restorePosition();
+
+    if (pendingRestoreTime !== null) {
+      try {
+        const response = await fetch(resolveAssetPath(song.discPath));
+        if (!response.ok) throw new Error("Could not fetch audio for seeking");
+        const audioBlob = await response.blob();
+        if (loadGeneration !== songLoadGeneration) return;
+
+        activeAudioObjectUrl = URL.createObjectURL(audioBlob);
+        disc.onloadedmetadata = finishLoading;
+        disc.src = activeAudioObjectUrl;
+        disc.load();
+        return;
+      } catch {
+        if (loadGeneration !== songLoadGeneration) return;
+      }
+    }
+
+    finishLoading();
   };
 
   disc.onloadedmetadata = restoreState;
+  disc.load();
 }
 
-const initialState = hasSelectedSong ? null : savedState;
+const navigationEntry = performance.getEntriesByType("navigation")[0];
+const isReloadingCurrentSong =
+  hasSelectedSong &&
+  navigationEntry?.type === "reload" &&
+  savedState?.songIndex === selectedSong;
+const initialState =
+  hasSelectedSong && !isReloadingCurrentSong ? null : savedState;
 loadSong(
   songs[songIndex],
   initialState && Number.isFinite(initialState.currentTime)
     ? initialState.currentTime
     : 0,
-  hasSelectedSong || !!(initialState && initialState.isPlaying),
+  isReloadingCurrentSong
+    ? !!(initialState && initialState.isPlaying)
+    : hasSelectedSong || !!(initialState && initialState.isPlaying),
 );
+
+function attemptPlayAudio() {
+  if (!disc.src) return false;
+
+  if (!disc.paused) {
+    playbackIntent = true;
+    updatePlayPauseIcon();
+    savePlayerState();
+    return true;
+  }
+
+  playbackIntent = true;
+  const playPromise = disc.play();
+
+  if (playPromise && typeof playPromise.then === "function") {
+    playPromise
+      .then(() => {
+        playbackIntent = true;
+        updatePlayPauseIcon();
+        savePlayerState();
+      })
+      .catch(() => {
+        playbackIntent = false;
+        updatePlayPauseIcon();
+        savePlayerState();
+      });
+    return true;
+  }
+
+  updatePlayPauseIcon();
+  savePlayerState();
+  return true;
+}
 
 function playPauseMedia() {
   if (!disc.src) return;
 
   if (disc.paused) {
-    playbackIntent = true;
-    const playPromise = disc.play();
-    if (playPromise && typeof playPromise.catch === "function") {
-      playPromise.catch(() => {
-        updatePlayPauseIcon();
-      });
-    }
+    void attemptPlayAudio();
   } else {
     playbackIntent = false;
     disc.pause();
+    updatePlayPauseIcon();
+    savePlayerState();
   }
-
-  savePlayerState();
 }
 
 function updatePlayPauseIcon() {
@@ -162,14 +348,18 @@ function updateProgress() {
   if (!disc.duration) return;
 
   progress.style.width = (disc.currentTime / disc.duration) * 100 + "%";
-
-  let minutes = Math.floor(disc.currentTime / 60);
-  let seconds = Math.floor(disc.currentTime % 60);
-  if (seconds < 10) {
-    seconds = "0" + seconds;
-  }
-  timer.textContent = `${minutes}:${seconds}`;
+  timer.textContent = formatTime(disc.currentTime);
+  progressContainer.setAttribute("aria-valuemax", String(disc.duration));
+  progressContainer.setAttribute("aria-valuenow", String(disc.currentTime));
+  progressContainer.setAttribute("aria-valuetext", timer.textContent);
   savePlayerState();
+}
+
+function formatTime(time) {
+  const totalSeconds = Math.max(0, Math.floor(time));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = String(totalSeconds % 60).padStart(2, "0");
+  return `${minutes}:${seconds}`;
 }
 
 function resetProgress() {
@@ -188,12 +378,7 @@ function gotoPreviousSong() {
   loadSong(songs[songIndex]);
   resetProgress();
   if (isDiscPlayingNow) {
-    const playPromise = disc.play();
-    if (playPromise && typeof playPromise.catch === "function") {
-      playPromise.catch(() => {
-        updatePlayPauseIcon();
-      });
-    }
+    void attemptPlayAudio();
   }
 }
 
@@ -208,20 +393,81 @@ function gotoNextSong(playImmediately) {
   loadSong(songs[songIndex]);
   resetProgress();
   if (isDiscPlayingNow || playImmediately) {
-    const playPromise = disc.play();
-    if (playPromise && typeof playPromise.catch === "function") {
-      playPromise.catch(() => {
-        updatePlayPauseIcon();
-      });
-    }
+    void attemptPlayAudio();
   }
 }
 
+function getTimeFromPointer(clientX) {
+  const bounds = progressContainer.getBoundingClientRect();
+  const ratio = Math.max(
+    0,
+    Math.min(1, (clientX - bounds.left) / bounds.width),
+  );
+  return ratio * disc.duration;
+}
+
+function previewProgress(time) {
+  const previewTime = Math.max(0, Math.min(time, disc.duration));
+  progress.style.width = (previewTime / disc.duration) * 100 + "%";
+  timer.textContent = formatTime(previewTime);
+  progressContainer.setAttribute("aria-valuenow", String(previewTime));
+  progressContainer.setAttribute("aria-valuetext", timer.textContent);
+}
+
 function setProgress(ev) {
-  const totalWidth = this.clientWidth;
-  const clickWidth = ev.offsetX;
-  const clickWidthRatio = clickWidth / totalWidth;
-  disc.currentTime = clickWidthRatio * disc.duration;
+  previewProgress(getTimeFromPointer(ev.clientX));
+}
+
+async function seekToTime(time) {
+  if (!Number.isFinite(disc.duration) || disc.duration <= 0) return;
+
+  const targetTime = Math.max(0, Math.min(time, disc.duration));
+  pendingRestoreTime = targetTime;
+
+  if (canSeekToTime(targetTime)) {
+    disc.currentTime = targetTime;
+    pendingRestoreTime = null;
+    updateProgress();
+    savePlayerState();
+    return;
+  }
+
+  if (isSeekFallbackLoading) return;
+
+  const loadGeneration = songLoadGeneration;
+  isSeekFallbackLoading = true;
+
+  try {
+  const response = await fetch(resolveAssetPath(songs[songIndex].discPath));
+    if (!response.ok) throw new Error("Could not fetch audio for seeking");
+    const audioBlob = await response.blob();
+    if (loadGeneration !== songLoadGeneration) return;
+
+    if (activeAudioObjectUrl) URL.revokeObjectURL(activeAudioObjectUrl);
+    activeAudioObjectUrl = URL.createObjectURL(audioBlob);
+    disc.onloadedmetadata = () => {
+      if (loadGeneration !== songLoadGeneration) return;
+
+      disc.currentTime = Math.min(
+        pendingRestoreTime ?? targetTime,
+        disc.duration,
+      );
+      pendingRestoreTime = null;
+      isSeekFallbackLoading = false;
+      if (playbackIntent) {
+        void attemptPlayAudio();
+      }
+      updateProgress();
+      updatePlayPauseIcon();
+    };
+    disc.src = activeAudioObjectUrl;
+    disc.load();
+  } catch {
+    if (loadGeneration !== songLoadGeneration) return;
+    isSeekFallbackLoading = false;
+    pendingRestoreTime = null;
+    updateProgress();
+  }
 }
 
 play.addEventListener("click", playPauseMedia);
@@ -232,7 +478,7 @@ disc.addEventListener("play", () => {
   savePlayerState();
 });
 disc.addEventListener("pause", () => {
-  playbackIntent = false;
+  if (!isSeekFallbackLoading) playbackIntent = false;
   updatePlayPauseIcon();
   savePlayerState();
 });
@@ -245,5 +491,69 @@ prev.addEventListener("click", gotoPreviousSong);
 next.addEventListener("click", gotoNextSong.bind(null, false));
 
 if (progressContainer) {
-  progressContainer.addEventListener("click", setProgress);
+  progressContainer.setAttribute("role", "slider");
+  progressContainer.setAttribute("tabindex", "0");
+  progressContainer.setAttribute("aria-label", "Song position");
+  progressContainer.setAttribute("aria-valuemin", "0");
+  progressContainer.setAttribute("aria-valuemax", String(disc.duration || 0));
+  progressContainer.setAttribute("aria-valuenow", "0");
+
+  progressContainer.addEventListener("pointerdown", (ev) => {
+    if (!disc.duration) return;
+    isPointerSeeking = true;
+    progressContainer.classList.add("is-seeking");
+    progressContainer.setPointerCapture(ev.pointerId);
+    setProgress(ev);
+  });
+
+  progressContainer.addEventListener("pointermove", (ev) => {
+    if (isPointerSeeking) setProgress(ev);
+  });
+
+  progressContainer.addEventListener("pointerup", (ev) => {
+    if (!isPointerSeeking) return;
+    isPointerSeeking = false;
+    progressContainer.classList.remove("is-seeking");
+    void seekToTime(getTimeFromPointer(ev.clientX));
+  });
+
+  progressContainer.addEventListener("pointercancel", () => {
+    isPointerSeeking = false;
+    progressContainer.classList.remove("is-seeking");
+    updateProgress();
+  });
+
+  progressContainer.addEventListener("keydown", (ev) => {
+    if (!disc.duration) return;
+
+    let targetTime;
+    switch (ev.key) {
+      case "ArrowRight":
+      case "ArrowUp":
+        targetTime = disc.currentTime + 5;
+        break;
+      case "ArrowLeft":
+      case "ArrowDown":
+        targetTime = disc.currentTime - 5;
+        break;
+      case "PageUp":
+        targetTime = disc.currentTime + 30;
+        break;
+      case "PageDown":
+        targetTime = disc.currentTime - 30;
+        break;
+      case "Home":
+        targetTime = 0;
+        break;
+      case "End":
+        targetTime = disc.duration;
+        break;
+      default:
+        return;
+    }
+
+    ev.preventDefault();
+    previewProgress(targetTime);
+    void seekToTime(targetTime);
+  });
 }
