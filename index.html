@@ -7,20 +7,38 @@
   <link
     href="https://fonts.googleapis.com/css2?family=Montserrat&amp;family=Poppins:wght@300;400;500;600;700;800;900&amp;display=swap"
     rel="stylesheet">
-  <link rel="stylesheet" href="home.css?v=2">
-  <title>Select a Song</title>
+  <link rel="stylesheet" href="home.css?v=5">
+  <title>Choose a Music Category</title>
 </head>
 
 <body>
   <div class="selection-page">
     <div class="selection-header">
-      <h1>Select a Song</h1>
-      <p>Choose your favorite track to start listening.</p>
+      <h2>Browse by category</h2>
+      <p>Select a section to discover more songs.</p>
     </div>
-    <div id="song-list" class="song-list"></div>
-  </div>
 
-  <script src="selection.js?v=2"></script>
+    <nav class="category-list" aria-label="Music categories">
+      <a class="category-card hollywood" href="songs.html?category=Hollywood">
+        <span class="card-icon" aria-hidden="true">🎬</span>
+        <span class="category-card-title">Hollywood</span>
+        <span class="category-card-description">Chart-topping hits and feel-good anthems.</span>
+        <span class="card-meta">28 tracks</span>
+      </a>
+      <a class="category-card bollywood" href="songs.html?category=Bollywood">
+        <span class="card-icon" aria-hidden="true">🎵</span>
+        <span class="category-card-title">Bollywood</span>
+        <span class="category-card-description">Melodic classics and modern party energy.</span>
+        <span class="card-meta">18 tracks</span>
+      </a>
+      <a class="category-card gujarati" href="songs.html?category=Gujarati">
+        <span class="card-icon" aria-hidden="true">✨</span>
+        <span class="category-card-title">Gujarati</span>
+        <span class="category-card-description">Warm rhythms, soulful vocals, and vibrant beats.</span>
+        <span class="card-meta">12 tracks</span>
+      </a>
+    </nav>
+  </div>
 </body>
 
 </html>

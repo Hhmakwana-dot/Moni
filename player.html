@@ -7,23 +7,24 @@
     <link
         href="https://fonts.googleapis.com/css2?family=Montserrat&amp;family=Poppins:wght@300;400;500;600;700;800;900&amp;display=swap"
         rel="stylesheet">
-    <link rel="stylesheet" href="home.css?v=2">
+    <link rel="stylesheet" href="home.css?v=8">
     <title>Music Player</title>
 </head>
 
 <body>
     <div class="container player-container">
-        <a class="back-link" href="index.html" aria-label="Back to song selection">← Back</a>
+        <a class="back-link" id="player-back" href="index.html" aria-label="Back to categories">← Categories</a>
         <h1 class="heading">Music Player</h1>
         <div class="music-container">
             <div id="cover-box">
-                <img src="cover1.jpg" alt="cover-image" id="cover">
+                <img src="cover/cover1.jpg" alt="cover-image" id="cover">
             </div>
             <div id="music-box">
                 <audio id="disc" preload="auto"></audio>
                 <div id="music-info">
                     <h2 id="title"></h2>
                     <h3 id="artist"></h3>
+                    <p id="playback-message" role="status" aria-live="polite" hidden></p>
                     <div id="progress-container">
                         <div id="progress"></div>
                     </div>
@@ -40,7 +41,63 @@
             </div>
         </div>
     </div>
-    <script src="script.js?v=2"></script>
+    <main id="songs-view" class="songs-view" hidden>
+        <div class="songs-view-content">
+            <section id="category-view" hidden>
+                <header class="selection-header">
+                    <h1>Choose a Category</h1>
+                    <p>Select a category to browse its songs.</p>
+                </header>
+                <nav class="category-list" aria-label="Music categories">
+                    <a class="category-card" href="songs.html?category=Hollywood" data-category="Hollywood">
+                        <span class="category-card-title">Hollywood</span>
+                        <span class="category-card-description">Browse Hollywood songs</span>
+                    </a>
+                    <a class="category-card" href="songs.html?category=Bollywood" data-category="Bollywood">
+                        <span class="category-card-title">Bollywood</span>
+                        <span class="category-card-description">Browse Bollywood songs</span>
+                    </a>
+                    <a class="category-card" href="songs.html?category=Gujarati" data-category="Gujarati">
+                        <span class="category-card-title">Gujarati</span>
+                        <span class="category-card-description">Browse Gujarati songs</span>
+                    </a>
+                </nav>
+            </section>
+            <section id="inline-song-page" hidden>
+                <a class="back-link" id="inline-categories-link" href="index.html">← Categories</a>
+                <header class="selection-header">
+                    <h1 id="inline-category-title"></h1>
+                    <p>Choose a track to start listening.</p>
+                </header>
+                <div id="inline-song-list" class="song-list"></div>
+            </section>
+        </div>
+        <section class="mini-player" aria-label="Now playing">
+            <button id="mini-track-open" class="mini-track" type="button" aria-label="Open current song in player">
+                <img id="mini-cover" class="mini-cover" alt="">
+                <div class="mini-track-info">
+                    <div class="mini-title-row">
+                        <strong id="mini-title"></strong>
+                        <span class="mini-equalizer" aria-hidden="true">
+                            <i></i><i></i><i></i>
+                        </span>
+                    </div>
+                    <span id="mini-artist"></span>
+                </div>
+            </button>
+            <div class="mini-controls">
+                <button id="mini-prev" class="btn" type="button" aria-label="Previous song">⏮</button>
+                <button id="mini-play" class="special-btn" type="button" aria-label="Play">▶</button>
+                <button id="mini-next" class="btn" type="button" aria-label="Next song">⏭</button>
+            </div>
+            <div class="mini-progress">
+                <span id="mini-current-time">0:00</span>
+                <input id="mini-seek" type="range" min="0" max="0" value="0" aria-label="Song position">
+                <span id="mini-duration">0:00</span>
+            </div>
+        </section>
+    </main>
+    <script src="script.js?v=40"></script>
 </body>
 
 </html>
