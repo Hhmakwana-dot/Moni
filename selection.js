@@ -342,7 +342,7 @@ const songList = document.getElementById("song-list");
 if (songList) {
   const params = new URLSearchParams(window.location.search);
   const requestedCategory = params.get("category");
-  const category = ["Hollywood", "Bollywood", "Gujarati"].includes(
+  const category = ["Hollywood", "Bollywood", "Gujarati", "Liked Songs"].includes(
     requestedCategory,
   )
     ? requestedCategory
@@ -352,10 +352,29 @@ if (songList) {
   if (!category) {
     songList.textContent = "Choose a category to see its songs.";
   } else {
-    categoryTitle.textContent = `${category} Songs`;
-    const categorySongs = songs
-      .map((song, index) => ({ song, index }))
-      .filter(({ song }) => resolveSongCategory(song) === category);
+    let favoriteIndexes = [];
+    if (category === "Liked Songs") {
+      try {
+        const storedFavorites = JSON.parse(
+          localStorage.getItem("music-player-favorites") || "[]",
+        );
+        favoriteIndexes = Array.isArray(storedFavorites)
+          ? storedFavorites.filter(
+              (index) =>
+                Number.isInteger(index) && index >= 0 && index < songs.length,
+            )
+          : [];
+      } catch {
+        favoriteIndexes = [];
+      }
+    }
+    categoryTitle.textContent = category;
+    const categorySongs =
+      category === "Liked Songs"
+        ? favoriteIndexes.map((index) => ({ song: songs[index], index }))
+        : songs
+            .map((song, index) => ({ song, index }))
+            .filter(({ song }) => resolveSongCategory(song) === category);
 
     categorySongs.forEach(({ song, index }, categoryIndex) => {
       const card = document.createElement("article");
@@ -399,7 +418,10 @@ if (songList) {
     });
 
     if (categorySongs.length === 0) {
-      songList.textContent = `No ${category} songs are available yet.`;
+      songList.textContent =
+        category === "Liked Songs"
+          ? "Like a song in the player and it will appear here."
+          : `No ${category} songs are available yet.`;
     }
   }
 }

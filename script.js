@@ -10,6 +10,10 @@ const duration = document.getElementById("duration");
 const prev = document.getElementById("prev");
 const play = document.getElementById("play");
 const next = document.getElementById("next");
+const favorite = document.getElementById("favorite");
+const shareTrack = document.getElementById("share-track");
+const shuffle = document.getElementById("shuffle");
+const repeat = document.getElementById("repeat");
 
 function resolveAssetPath(assetPath) {
   return new URL(assetPath, window.location.href).toString();
@@ -410,12 +414,32 @@ function resolveSongCategory(song) {
 }
 
 const STORAGE_KEY = "music-player-state";
+const FAVORITES_STORAGE_KEY = "music-player-favorites";
+const favoriteSongIndexes = (() => {
+  try {
+    const storedIndexes = JSON.parse(
+      localStorage.getItem(FAVORITES_STORAGE_KEY) || "[]",
+    );
+    return new Set(
+      Array.isArray(storedIndexes)
+        ? storedIndexes.filter(
+            (index) =>
+              Number.isInteger(index) && index >= 0 && index < songs.length,
+          )
+        : [],
+    );
+  } catch {
+    return new Set();
+  }
+})();
+const standardCategories = ["Hollywood", "Bollywood", "Gujarati"];
+const likedSongsCategory = "Liked Songs";
+const isSupportedCategory = (category) =>
+  standardCategories.includes(category) || category === likedSongsCategory;
 
 const params = new URLSearchParams(window.location.search);
 const requestedCategory = params.get("category");
-let selectedCategory = ["Hollywood", "Bollywood", "Gujarati"].includes(
-  requestedCategory,
-)
+let selectedCategory = isSupportedCategory(requestedCategory)
   ? requestedCategory
   : null;
 const playerContainer = document.querySelector(".player-container");
@@ -434,6 +458,10 @@ const miniSeek = document.getElementById("mini-seek");
 const miniCurrentTime = document.getElementById("mini-current-time");
 const miniDuration = document.getElementById("mini-duration");
 function getPlaybackQueue(category) {
+  if (category === likedSongsCategory) {
+    return [...favoriteSongIndexes];
+  }
+
   return songs
     .map((song, index) => ({ song, index }))
     .filter(
@@ -451,6 +479,8 @@ let activeAudioObjectUrl = null;
 let songLoadGeneration = 0;
 let isSeekFallbackLoading = false;
 let isPointerSeeking = false;
+let isShuffleEnabled = false;
+let repeatMode = "off";
 const playerBack = document.getElementById("player-back");
 if (playerBack && selectedCategory) {
   playerBack.href = `songs.html?category=${encodeURIComponent(selectedCategory)}`;
@@ -462,6 +492,21 @@ function renderInlineSongList() {
 
   inlineCategoryTitle.textContent = `${selectedCategory} Songs`;
   inlineSongList.replaceChildren();
+  if (selectedCategory === likedSongsCategory) {
+    const likedCount = document.getElementById("inline-liked-count");
+    if (likedCount) likedCount.textContent = String(playbackQueue.length);
+  }
+
+  if (playbackQueue.length === 0) {
+    const emptyMessage = document.createElement("p");
+    emptyMessage.className = "empty-song-list";
+    emptyMessage.textContent =
+      selectedCategory === likedSongsCategory
+        ? "Like a song to add it to your Liked Songs."
+        : "No songs are available in this category yet.";
+    inlineSongList.appendChild(emptyMessage);
+    return;
+  }
 
   playbackQueue.forEach((index, queueIndex) => {
     const song = songs[index];
@@ -511,7 +556,7 @@ function renderInlineSongList() {
 
 function showSongsView(addHistory = true, category = selectedCategory) {
   if (
-    !["Hollywood", "Bollywood", "Gujarati"].includes(category) ||
+    !isSupportedCategory(category) ||
     !songsView ||
     !playerContainer
   )
@@ -608,7 +653,7 @@ window.addEventListener("popstate", (event) => {
     showCategoryView(false);
   } else {
     if (
-      ["Hollywood", "Bollywood", "Gujarati"].includes(event.state?.category)
+      isSupportedCategory(event.state?.category)
     ) {
       selectedCategory = event.state.category;
       playbackQueue = getPlaybackQueue(selectedCategory);
@@ -671,6 +716,91 @@ function canSeekToTime(time) {
   return false;
 }
 
+function updateMediaSessionMetadata(song = songs[songIndex]) {
+  if (!navigator.mediaSession || typeof window.MediaMetadata !== "function") {
+    return;
+  }
+
+  const artworkUrl = resolveAssetPath(song.coverPath);
+  const artworkType = song.coverPath.endsWith(".png")
+    ? "image/png"
+    : "image/jpeg";
+  navigator.mediaSession.metadata = new window.MediaMetadata({
+    title: song.title,
+    artist: song.artist,
+    album: "MONI",
+    artwork: [
+      { src: artworkUrl, sizes: "96x96", type: artworkType },
+      { src: artworkUrl, sizes: "256x256", type: artworkType },
+      { src: artworkUrl, sizes: "512x512", type: artworkType },
+    ],
+  });
+}
+
+function updateMediaSessionPosition() {
+  const mediaSession = navigator.mediaSession;
+  if (
+    !mediaSession ||
+    typeof mediaSession.setPositionState !== "function" ||
+    !Number.isFinite(disc.duration) ||
+    disc.duration <= 0
+  ) {
+    return;
+  }
+
+  mediaSession.setPositionState({
+    duration: disc.duration,
+    playbackRate:
+      Number.isFinite(disc.playbackRate) && disc.playbackRate > 0
+        ? disc.playbackRate
+        : 1,
+    position: Math.max(
+      0,
+      Math.min(
+        Number.isFinite(disc.currentTime) ? disc.currentTime : 0,
+        disc.duration,
+      ),
+    ),
+  });
+}
+
+function setMediaSessionPlaybackState(state) {
+  if (navigator.mediaSession) {
+    navigator.mediaSession.playbackState = state;
+  }
+}
+
+function setupMediaSession() {
+  const mediaSession = navigator.mediaSession;
+  if (!mediaSession || typeof mediaSession.setActionHandler !== "function") {
+    return;
+  }
+
+  const actions = {
+    play: () => void attemptPlayAudio(),
+    pause: () => {
+      if (!disc.paused) playPauseMedia();
+    },
+    previoustrack: gotoPreviousSong,
+    nexttrack: () => gotoNextSong(true),
+    seekbackward: (event) =>
+      void seekToTime(disc.currentTime - (event.seekOffset || 10)),
+    seekforward: (event) =>
+      void seekToTime(disc.currentTime + (event.seekOffset || 10)),
+    seekto: (event) => {
+      if (Number.isFinite(event.seekTime)) void seekToTime(event.seekTime);
+    },
+  };
+
+  Object.entries(actions).forEach(([action, handler]) => {
+    try {
+      mediaSession.setActionHandler(action, handler);
+    } catch (error) {
+      if (error.name !== "NotSupportedError") throw error;
+    }
+  });
+}
+
 function loadSong(song, startTime = 0, shouldAutoPlay = false) {
   const loadGeneration = ++songLoadGeneration;
   isSeekFallbackLoading = false;
@@ -688,7 +818,11 @@ function loadSong(song, startTime = 0, shouldAutoPlay = false) {
   disc.src = resolveAssetPath(song.discPath);
   title.textContent = song.title;
   artist.textContent = song.artist;
+  updateFavoriteButton();
   duration.textContent = song.duration;
+  updateMediaSessionMetadata(song);
+  setMediaSessionPlaybackState("paused");
+  updateMediaSessionPosition();
   updateMiniPlayer();
 
   const restorePosition = () => {
@@ -748,6 +882,115 @@ function loadSong(song, startTime = 0, shouldAutoPlay = false) {
   disc.load();
 }
 
+function updateFavoriteButton() {
+  const isFavorite = favoriteSongIndexes.has(songIndex);
+  favorite.classList.toggle("is-favorite", isFavorite);
+  favorite.setAttribute("aria-pressed", String(isFavorite));
+  favorite.setAttribute(
+    "aria-label",
+    isFavorite ? "Remove from favorites" : "Add to favorites",
+  );
+}
+
+function toggleFavorite() {
+  if (favoriteSongIndexes.has(songIndex)) {
+    favoriteSongIndexes.delete(songIndex);
+  } else {
+    favoriteSongIndexes.add(songIndex);
+  }
+
+  try {
+    localStorage.setItem(
+      FAVORITES_STORAGE_KEY,
+      JSON.stringify([...favoriteSongIndexes]),
+    );
+  } catch (error) {
+    console.error("Could not save favorite songs:", error);
+  }
+
+  if (selectedCategory === likedSongsCategory) {
+    playbackQueue = getPlaybackQueue(selectedCategory);
+    renderInlineSongList();
+  }
+  updateFavoriteButton();
+}
+
+async function shareCurrentTrack() {
+  const trackUrl = new URL(window.location.href);
+  trackUrl.searchParams.set("song", String(songIndex));
+  trackUrl.searchParams.delete("fresh");
+  trackUrl.searchParams.delete("design");
+  if (selectedCategory) {
+    trackUrl.searchParams.set("category", selectedCategory);
+  }
+
+  const shareData = {
+    title: songs[songIndex].title,
+    text: `${songs[songIndex].title} — ${songs[songIndex].artist}`,
+    url: trackUrl.toString(),
+  };
+
+  try {
+    if (typeof navigator.share === "function") {
+      await navigator.share(shareData);
+      return;
+    }
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(shareData.url);
+      showPlaybackMessage("Track link copied.");
+      return;
+    }
+
+    showPlaybackMessage("Sharing isn't available in this browser.");
+  } catch (error) {
+    if (error.name === "AbortError") return;
+    console.error("Could not share this track:", error);
+    showPlaybackMessage("Couldn't share this track. Please try again.");
+  }
+}
+
+function updateShuffleButton() {
+  shuffle.classList.toggle("is-active", isShuffleEnabled);
+  shuffle.setAttribute("aria-pressed", String(isShuffleEnabled));
+  shuffle.setAttribute(
+    "aria-label",
+    isShuffleEnabled ? "Shuffle on" : "Shuffle off",
+  );
+}
+
+function cycleRepeatMode() {
+  repeatMode =
+    repeatMode === "off" ? "all" : repeatMode === "all" ? "one" : "off";
+  repeat.classList.toggle("is-active", repeatMode !== "off");
+  repeat.dataset.repeatMode = repeatMode;
+  repeat.setAttribute("aria-pressed", String(repeatMode !== "off"));
+  repeat.setAttribute(
+    "aria-label",
+    `Repeat ${repeatMode === "off" ? "off" : repeatMode}`,
+  );
+}
+
+function handleSongEnded() {
+  if (repeatMode === "one") {
+    disc.currentTime = 0;
+    void attemptPlayAudio();
+    return;
+  }
+
+  const currentQueuePosition = playbackQueue.indexOf(songIndex);
+  const isLastSong =
+    currentQueuePosition === playbackQueue.length - 1 && !isShuffleEnabled;
+  if (isLastSong && repeatMode !== "all") {
+    playbackIntent = false;
+    updatePlayPauseIcon();
+    savePlayerState();
+    return;
+  }
+
+  gotoNextSong(true);
+}
+
+setupMediaSession();
 const navigationEntry = performance.getEntriesByType("navigation")[0];
 const isReloadingCurrentSong =
   hasSelectedSong &&
@@ -781,6 +1024,7 @@ function attemptPlayAudio() {
   }
 
   playbackIntent = true;
+  setMediaSessionPlaybackState("playing");
   const playPromise = disc.play();
 
   if (playPromise && typeof playPromise.then === "function") {
@@ -793,6 +1037,7 @@ function attemptPlayAudio() {
       })
       .catch((error) => {
         playbackIntent = false;
+        setMediaSessionPlaybackState("paused");
         showPlaybackMessage(
           error.name === "NotAllowedError"
             ? "Your browser blocked playback. Press Play to start the song."
@@ -825,6 +1070,7 @@ function playPauseMedia() {
 function updatePlayPauseIcon() {
   const miniPlayer = document.querySelector(".mini-player");
   if (miniPlayer) miniPlayer.classList.toggle("is-playing", !disc.paused);
+  setMediaSessionPlaybackState(disc.paused ? "paused" : "playing");
 
   if (disc.paused) {
     play.textContent = "▶";
@@ -867,6 +1113,7 @@ function updateProgress() {
   progressContainer.setAttribute("aria-valuemax", String(disc.duration));
   progressContainer.setAttribute("aria-valuenow", String(disc.currentTime));
   progressContainer.setAttribute("aria-valuetext", timer.textContent);
+  updateMediaSessionPosition();
   updateMiniPlayer();
   savePlayerState();
 }
@@ -881,6 +1128,7 @@ function formatTime(time) {
 function resetProgress() {
   progress.style.width = "0%";
   timer.textContent = "0:00";
+  updateMediaSessionPosition();
   updateMiniPlayer();
 }
 
@@ -888,33 +1136,42 @@ function gotoPreviousSong() {
   if (playbackQueue.length === 0) return;
 
   const currentQueuePosition = playbackQueue.indexOf(songIndex);
-  const safeQueuePosition = currentQueuePosition < 0 ? 0 : currentQueuePosition;
-  songIndex =
-    playbackQueue[
-      (safeQueuePosition - 1 + playbackQueue.length) % playbackQueue.length
-    ];
+  songIndex = isShuffleEnabled
+    ? getRandomSongIndex()
+    : playbackQueue[
+        currentQueuePosition < 0
+          ? playbackQueue.length - 1
+          : (currentQueuePosition - 1 + playbackQueue.length) %
+            playbackQueue.length
+      ];
 
   const isDiscPlayingNow = !disc.paused;
-  loadSong(songs[songIndex]);
+  loadSong(songs[songIndex], 0, isDiscPlayingNow);
   resetProgress();
-  if (isDiscPlayingNow) {
-    void attemptPlayAudio();
-  }
+}
+
+function getRandomSongIndex() {
+  if (playbackQueue.length < 2) return songIndex;
+
+  const otherSongs = playbackQueue.filter((index) => index !== songIndex);
+  return otherSongs[Math.floor(Math.random() * otherSongs.length)];
 }
 
 function gotoNextSong(playImmediately) {
   if (playbackQueue.length === 0) return;
 
   const currentQueuePosition = playbackQueue.indexOf(songIndex);
-  const safeQueuePosition = currentQueuePosition < 0 ? 0 : currentQueuePosition;
-  songIndex = playbackQueue[(safeQueuePosition + 1) % playbackQueue.length];
+  songIndex = isShuffleEnabled
+    ? getRandomSongIndex()
+    : playbackQueue[
+        currentQueuePosition < 0
+          ? 0
+          : (currentQueuePosition + 1) % playbackQueue.length
+      ];
 
   const isDiscPlayingNow = !disc.paused;
-  loadSong(songs[songIndex]);
+  loadSong(songs[songIndex], 0, isDiscPlayingNow || playImmediately);
   resetProgress();
-  if (isDiscPlayingNow || playImmediately) {
-    void attemptPlayAudio();
-  }
 }
 
 function getTimeFromPointer(clientX) {
@@ -1007,12 +1264,14 @@ miniSeek.addEventListener("change", () => {
 
 disc.addEventListener("play", () => {
   playbackIntent = true;
+  setMediaSessionPlaybackState("playing");
   showPlaybackMessage("");
   updatePlayPauseIcon();
   savePlayerState();
 });
 disc.addEventListener("error", () => {
   playbackIntent = false;
+  setMediaSessionPlaybackState("paused");
   showPlaybackMessage(
     window.location.protocol === "file:"
       ? "Audio cannot load from a file:// page. Run start-player.bat, then open http://localhost:8000/ to play audio."
@@ -1023,16 +1282,25 @@ disc.addEventListener("error", () => {
 });
 disc.addEventListener("pause", () => {
   if (!isSeekFallbackLoading) playbackIntent = false;
+  setMediaSessionPlaybackState("paused");
   updatePlayPauseIcon();
   savePlayerState();
 });
 disc.addEventListener("timeupdate", updateProgress);
-disc.addEventListener("ended", gotoNextSong.bind(null, true));
+disc.addEventListener("loadedmetadata", updateMediaSessionPosition);
+disc.addEventListener("ended", handleSongEnded);
 window.addEventListener("beforeunload", savePlayerState);
 
 prev.addEventListener("click", gotoPreviousSong);
 
 next.addEventListener("click", gotoNextSong.bind(null, false));
+favorite.addEventListener("click", toggleFavorite);
+shareTrack.addEventListener("click", () => void shareCurrentTrack());
+shuffle.addEventListener("click", () => {
+  isShuffleEnabled = !isShuffleEnabled;
+  updateShuffleButton();
+});
+repeat.addEventListener("click", cycleRepeatMode);
 
 if (progressContainer) {
   progressContainer.setAttribute("role", "slider");

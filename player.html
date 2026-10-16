@@ -8,23 +8,40 @@
     <link
         href="https://fonts.googleapis.com/css2?family=Montserrat&amp;family=Poppins:wght@300;400;500;600;700;800;900&amp;display=swap"
         rel="stylesheet">
-    <link rel="stylesheet" href="home.css?v=8">
+    <link rel="stylesheet" href="home.css?v=15">
     <title>Music Player</title>
 </head>
 
-<body>
+<body class="player-page">
     <div class="container player-container">
         <a class="back-link" id="player-back" href="index.html" aria-label="Back to categories">← Categories</a>
-        <h1 class="heading">Music Player</h1>
         <div class="music-container">
+            <h1 class="heading">Music Player</h1>
             <div id="cover-box">
                 <img src="cover/cover1.jpg" alt="cover-image" id="cover">
             </div>
             <div id="music-box">
                 <audio id="disc" preload="auto"></audio>
                 <div id="music-info">
-                    <h2 id="title"></h2>
-                    <h3 id="artist"></h3>
+                    <div class="track-details">
+                        <button id="favorite" class="round-action favorite-action" type="button"
+                            aria-label="Add to favorites" aria-pressed="false">
+                            <svg viewBox="0 0 24 24" aria-hidden="true">
+                                <path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1.1-1.1a5.5 5.5 0 0 0-7.8 7.8l1.1 1.1L12 21l7.8-7.5 1.1-1.1a5.5 5.5 0 0 0-.1-7.8Z" />
+                            </svg>
+                        </button>
+                        <div class="track-copy">
+                            <h2 id="title"></h2>
+                            <h3 id="artist"></h3>
+                        </div>
+                        <button id="share-track" class="round-action" type="button" aria-label="Share song">
+                            <svg viewBox="0 0 24 24" aria-hidden="true">
+                                <circle cx="12" cy="5" r="1.5" />
+                                <circle cx="12" cy="12" r="1.5" />
+                                <circle cx="12" cy="19" r="1.5" />
+                            </svg>
+                        </button>
+                    </div>
                     <p id="playback-message" role="status" aria-live="polite" hidden></p>
                     <div id="progress-container">
                         <div id="progress"></div>
@@ -35,9 +52,21 @@
                     </div>
                 </div>
                 <div id="control-box">
+                    <button id="shuffle" class="btn mode-btn" type="button" aria-label="Shuffle off"
+                        aria-pressed="false">
+                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="M17 3h4v4M3 7h2.5c4.7 0 8.3 10 13 10H21m-4 4h4v-4M3 17h2.5c1.8 0 3.4-1.5 4.8-3.5M14 8.5c1.4-1.1 2.8-1.5 4.5-1.5H21" />
+                        </svg>
+                    </button>
                     <button id="prev" class="btn" type="button" aria-label="Previous song">⏮</button>
                     <button id="play" class="special-btn" type="button" aria-label="Play">▶</button>
                     <button id="next" class="btn" type="button" aria-label="Next song">⏭</button>
+                    <button id="repeat" class="btn mode-btn" type="button" aria-label="Repeat off"
+                        aria-pressed="false">
+                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="m17 2 4 4-4 4M3 11V9a3 3 0 0 1 3-3h15M7 22l-4-4 4-4m14-1v2a3 3 0 0 1-3 3H3" />
+                        </svg>
+                    </button>
                 </div>
             </div>
         </div>
@@ -61,6 +90,12 @@
                     <a class="category-card" href="songs.html?category=Gujarati" data-category="Gujarati">
                         <span class="category-card-title">Gujarati</span>
                         <span class="category-card-description">Browse Gujarati songs</span>
+                    </a>
+                    <a class="category-card liked-songs" href="songs.html?category=Liked%20Songs"
+                        data-category="Liked Songs">
+                        <span class="category-card-title">Liked Songs</span>
+                        <span class="category-card-description">Your saved favorites</span>
+                        <span class="card-meta"><span id="inline-liked-count">0</span> songs</span>
                     </a>
                 </nav>
             </section>
@@ -98,7 +133,7 @@
             </div>
         </section>
     </main>
-    <script src="script.js?v=40"></script>
+    <script src="script.js?v=45"></script>
 </body>
 
 </html>

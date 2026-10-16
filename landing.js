@@ -3,6 +3,18 @@ const categoryPage = document.getElementById("category-page");
 const exploreButton = document.getElementById("landing-explore");
 const networkCanvas = document.getElementById("landing-network");
 
+const likedSongCount = document.getElementById("liked-song-count");
+if (likedSongCount) {
+  try {
+    const favorites = JSON.parse(
+      localStorage.getItem("music-player-favorites") || "[]",
+    );
+    likedSongCount.textContent = `${Array.isArray(favorites) ? favorites.length : 0} songs`;
+  } catch {
+    likedSongCount.textContent = "0 songs";
+  }
+}
+
 exploreButton.addEventListener("click", () => {
   landingScreen.hidden = true;
   categoryPage.hidden = false;
