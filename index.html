@@ -4,15 +4,27 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script src="launch.js?v=1"></script>
   <link
     href="https://fonts.googleapis.com/css2?family=Montserrat&amp;family=Poppins:wght@300;400;500;600;700;800;900&amp;display=swap"
     rel="stylesheet">
-  <link rel="stylesheet" href="home.css?v=5">
+  <link
+    href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@900&amp;display=swap"
+    rel="stylesheet">
+  <link rel="stylesheet" href="home.css?v=9">
   <title>Choose a Music Category</title>
 </head>
 
 <body>
-  <div class="selection-page">
+  <main class="landing-screen" id="landing-screen">
+    <canvas id="landing-network" class="landing-network" aria-hidden="true"></canvas>
+    <div class="landing-center">
+      <h1 class="landing-wordmark">MONI</h1>
+      <button class="landing-explore" id="landing-explore" type="button">Explore</button>
+    </div>
+  </main>
+
+  <div class="selection-page" id="category-page" hidden>
     <div class="selection-header">
       <h2>Browse by category</h2>
       <p>Select a section to discover more songs.</p>
@@ -39,6 +51,7 @@
       </a>
     </nav>
   </div>
+  <script src="landing.js?v=3"></script>
 </body>
 
 </html>

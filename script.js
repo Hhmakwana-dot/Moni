@@ -764,6 +764,11 @@ loadSong(
     ? !!(initialState && initialState.isPlaying)
     : hasSelectedSong || !!(initialState && initialState.isPlaying),
 );
+if (window.location.protocol === "file:") {
+  showPlaybackMessage(
+    "This page was opened as a local file. Run start-player.bat, then open http://localhost:8000/ to play audio.",
+  );
+}
 
 function attemptPlayAudio() {
   if (!disc.src) return false;
@@ -1010,7 +1015,7 @@ disc.addEventListener("error", () => {
   playbackIntent = false;
   showPlaybackMessage(
     window.location.protocol === "file:"
-      ? "Audio cannot load from a file:// page. Start a local web server, then open this page through http://localhost."
+      ? "Audio cannot load from a file:// page. Run start-player.bat, then open http://localhost:8000/ to play audio."
       : "Could not load this audio file. Check that it exists in the song/ folder and try again.",
   );
   updatePlayPauseIcon();
