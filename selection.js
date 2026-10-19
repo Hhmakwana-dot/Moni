@@ -313,6 +313,34 @@ const songs = [
     discPath: "song/music50.mp3",
     category: "Bollywood",
   },
+  {
+    title: "Main Rahoon Ya Na Rahoon",
+    artist: "Amaal Mallik, Armaan Malik",
+    coverPath: "cover/cover51.jpeg",
+    discPath: "song/music51.mp3",
+    category: "Bollywood",
+  },
+  {
+    title: "Gazab Ka Hai Din",
+    artist: "Jubin Nautiyal",
+    coverPath: "cover/cover52.jpeg",
+    discPath: "song/52.mp3",
+    category: "Bollywood",
+  },
+  {
+    title: "Aashiq Tera",
+    artist: "Sohail Sen, Altamash Faridi",
+    coverPath: "cover/cover53.jpeg",
+    discPath: "song/music53.mp3",
+    category: "Bollywood",
+  },
+  {
+    title: "Kaise Hua",
+    artist: "Vishal Mishra, Manoj Muntashir",
+    coverPath: "cover/cover54.jpeg",
+    discPath: "song/music54.mp3",
+    category: "Bollywood",
+  },
 ];
 
 const categoryByTitle = {

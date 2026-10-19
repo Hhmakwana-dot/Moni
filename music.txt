@@ -48,3 +48,7 @@ music47 = Tu Chahiye - Pritam, Atif Aslam, Amitabh Bhattacharya
 music48 = Dooron Dooron - Unplugged - Paresh Pahuja, Shiv Tandan
 music49 = Aayat - Arijit Singh, Mujtaba Aziz Naza, Shadab Faridi, Altamash Faridi, Farhan Sabri
 music50 = Alvida - Nikhil D'Souza, Sukhwinder Singh, Shruti Haasan, Loy Mendonsa
+music51 = Main Rahoon Ya Na Rahoon - Amaal Mallik, Armaan Malik
+music52 = Gazab Ka Hai Din - Jubin Nautiyal
+music53 = Aashiq Tera - Sohail Sen, Altamash Faridi
+music54 = Kaise Hua - Vishal Mishra, Manoj Muntashir
