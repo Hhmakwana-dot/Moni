@@ -1461,7 +1461,7 @@ body {
   }
 }
 
-@media (min-width: 760px) {
+@media (min-width: 700px) {
   .player-page .player-container {
     width: min(100rem, 92vw);
   }
@@ -1504,5 +1504,25 @@ body {
 
   .player-page #music-info {
     bottom: auto;
+  }
+}
+
+@media (min-width: 700px) and (max-width: 859px) {
+  .player-page #control-box {
+    gap: 0.4rem;
+  }
+
+  .player-page #control-box .btn {
+    width: 4.2rem;
+    height: 4.2rem;
+    min-width: 4.2rem;
+    min-height: 4.2rem;
+  }
+
+  .player-page #control-box .special-btn {
+    width: 6.4rem;
+    height: 6.4rem;
+    min-width: 6.4rem;
+    min-height: 6.4rem;
   }
 }
