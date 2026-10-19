@@ -583,6 +583,7 @@ body {
   from {
     transform: scaleY(0.5);
   }
+
   to {
     transform: scaleY(2.4);
   }
@@ -677,7 +678,7 @@ body {
   text-shadow: 0 12px 25px rgba(139, 92, 246, 0.35);
 }
 
-.music-container > .heading::after {
+.music-container>.heading::after {
   content: "";
   display: block;
   width: 10rem;
@@ -731,7 +732,7 @@ body {
 }
 
 #music-box,
-.music-container > .heading,
+.music-container>.heading,
 #music-info,
 #control-box,
 #timer-bar {
@@ -1207,8 +1208,7 @@ body {
     width: 100%;
     min-height: 100vh;
     min-height: 100svh;
-    padding: max(1.2rem, env(safe-area-inset-top)) 1.6rem
-      max(1.2rem, env(safe-area-inset-bottom));
+    padding: max(1.2rem, env(safe-area-inset-top)) 1.6rem max(1.2rem, env(safe-area-inset-bottom));
   }
 
   .player-page .heading {
@@ -1225,13 +1225,13 @@ body {
     padding: 2.4rem 1.2rem;
   }
 
-  .player-page .music-container > .heading {
+  .player-page .music-container>.heading {
     align-self: center;
     margin: 0;
     font-size: 2.5rem;
   }
 
-  .player-page .music-container > .heading::after {
+  .player-page .music-container>.heading::after {
     width: 10rem;
     height: 0.5rem;
     margin-top: 0.8rem;
@@ -1458,5 +1458,51 @@ body {
   .back-link {
     font-size: 1.2rem;
     margin-bottom: 1rem;
+  }
+}
+
+@media (min-width: 760px) {
+  .player-page .player-container {
+    width: min(100rem, 92vw);
+  }
+
+  .player-page .back-link {
+    margin-bottom: 1.2rem;
+  }
+
+  .player-page .music-container {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+    grid-template-areas:
+      "heading heading"
+      "cover player";
+    align-items: center;
+    gap: 1rem 3.2rem;
+    margin-top: 0;
+    padding: 2.2rem 3.2rem;
+  }
+
+  .player-page .music-container > .heading {
+    grid-area: heading;
+    margin: 0;
+    font-size: clamp(2.5rem, 3vw, 3.6rem);
+  }
+
+  .player-page #cover-box {
+    grid-area: cover;
+    width: min(100%, 40svh, 40rem);
+    max-width: none;
+    bottom: auto;
+    margin: 0 auto;
+  }
+
+  .player-page #music-box {
+    grid-area: player;
+    align-self: center;
+  }
+
+  .player-page #music-info {
+    bottom: auto;
   }
 }
